@@ -50,7 +50,6 @@ Là các thông số đầu vào để chạy
 
 | Tên biến môi trường | Giá trị    | Mô tả                               |
 | ------------------- | ---------- | ----------------------------------- |
-| ADDRESS_HOST        | 0.0.0.0    | địa chỉ host mà server sẽ lắng nghe |
 | PORT                | 8000       | Port mà server sẽ lắng nghe         |
 
 
