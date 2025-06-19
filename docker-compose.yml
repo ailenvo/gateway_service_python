@@ -1,0 +1,17 @@
+version: "3.8"
+
+services:
+  fastapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "${PORT}:8000"
+    environment:
+      - PORT=${PORT}
+      - PYTHONUNBUFFERED=1
+
+    volumes:
+      - .:/app
+    env_file:
+      - .env
