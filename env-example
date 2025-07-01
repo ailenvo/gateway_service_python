@@ -1,6 +1,6 @@
 #
 ENV = "DEV"
 PORT = 8000
-USER_SERVICE = "http://account-service:8001"
-AUTH_SERVICE = "http://auth-service:8002"
-PRODUCT_SERVICE = "http://auth-service:8003"
+user = "http://localhost:8001"
+auth = "http://localhost:8002"
+product = "http://localhost:8003"

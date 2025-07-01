@@ -1,18 +1,13 @@
 from fastapi import FastAPI, HTTPException, Request, Response
 from httpx import AsyncClient
-
-from app.configs import config
 from app.configs.config import PORT
+import os
+from dotenv import load_dotenv
+from app.schemas.base import AppBaseResponseError
+
+load_dotenv()
 
 app = FastAPI(title="API Gateway")
-
-# Cấu hình các service backend
-SERVICE_REGISTRY = {
-    "user": config.USER_SERVICE,
-    "auth": config.AUTH_SERVICE,
-    "product": config.PRODUCT_SERVICE,
-}
-
 
 # Async client để gửi request đến backend
 async_client = AsyncClient()
@@ -24,13 +19,38 @@ async def health_check():
     return {"status": "healthy"}
 
 
-@app.api_route("/{service}/{path:path}", methods=["GET", "POST", "PUT", "DELETE"])
+# Custom HTTPException
+@app.exception_handler(HTTPException)
+async def custom_http_exception_handler(_: Request, exc: HTTPException):
+    errors = exc.detail
+
+    status_code = exc.status_code
+
+    error_response = AppBaseResponseError(
+        errors,
+        status_code,
+    )
+
+    return error_response.to_json(status_code)
+
+
+BASE_ROOT = "/api/v1"
+
+
+@app.api_route(
+    BASE_ROOT + "/{service}/{path:path}", methods=["GET", "POST", "PUT", "DELETE"]
+)
 async def route_request(service: str, path: str, request: Request):
     """Điều hướng request tới service tương ứng, bao gồm header và query parameters"""
-    if service not in SERVICE_REGISTRY:
+
+    print("service", service)
+
+    service_url = os.getenv(service)
+    print("service_url", service_url)
+
+    if service_url is None:
         raise HTTPException(status_code=404, detail=f"Service {service} not found")
 
-    service_url = SERVICE_REGISTRY[service]
     full_url = f"{service_url}/{path}"
 
     try:
