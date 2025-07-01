@@ -1,16 +1,16 @@
 from fastapi import FastAPI, HTTPException, Request, Response
 from httpx import AsyncClient
 
+from app.configs import config
 from app.configs.config import PORT
 
 app = FastAPI(title="API Gateway")
 
 # Cấu hình các service backend
 SERVICE_REGISTRY = {
-    "payment": "http://localhost:8000",
-    "account": "http://account-service:8002",
-    "product": "http://product-service:8003",
-    "blogs": "http://blogs-service:8004",
+    "user": config.USER_SERVICE,
+    "auth": config.AUTH_SERVICE,
+    "product": config.PRODUCT_SERVICE,
 }
 
 

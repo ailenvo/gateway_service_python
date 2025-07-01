@@ -1,3 +1,6 @@
 #
 ENV = "DEV"
 PORT = 8000
+USER_SERVICE = "http://account-service:8001"
+AUTH_SERVICE = "http://auth-service:8002"
+PRODUCT_SERVICE = "http://auth-service:8003"
