@@ -5,6 +5,7 @@ import os
 from dotenv import load_dotenv
 from schemas.base import AppBaseResponseError
 from contextlib import asynccontextmanager
+from fastapi.responses import StreamingResponse
 
 load_dotenv()
 
@@ -15,9 +16,7 @@ async_client = AsyncClient()
 # Lifespan context replaces startup/shutdown events
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    # logger.info("App startup")
     yield
-    # logger.info("App shutdown")
     await async_client.aclose()
 
 
@@ -37,14 +36,11 @@ async def health_check():
 @app.exception_handler(HTTPException)
 async def custom_http_exception_handler(_: Request, exc: HTTPException):
     errors = exc.detail
-
     status_code = exc.status_code
-
     error_response = AppBaseResponseError(
         errors,
         status_code,
     )
-
     return error_response.to_json(status_code)
 
 
@@ -55,13 +51,9 @@ BASE_ROOT = "/api/v1"
     BASE_ROOT + "/{service}/{path:path}", methods=["GET", "POST", "PUT", "DELETE"]
 )
 async def route_request(service: str, path: str, request: Request):
-    """Điều hướng request tới service tương ứng, bao gồm header và query parameters"""
-
-    print("service", service)
+    """Điều hướng request tới service tương ứng, hỗ trợ streaming và các loại response khác"""
 
     service_url = os.getenv(service)
-    print("service_url", service_url)
-
     if service_url is None:
         raise HTTPException(status_code=404, detail=f"Service {service} not found")
 
@@ -75,44 +67,42 @@ async def route_request(service: str, path: str, request: Request):
         body = await request.body()
 
         # Gửi request đến service backend
-        if method == "get":
-            response = await async_client.get(
-                full_url, headers=headers, params=query_params
-            )
-        elif method == "post":
-            response = await async_client.post(
-                full_url,
-                content=body if body else {},
-                headers=headers,
-                params=query_params,
-            )
-        elif method == "put":
-            response = await async_client.put(
-                full_url,
-                content=body if body else {},
-                headers=headers,
-                params=query_params,
-            )
-        elif method == "delete":
-            response = await async_client.delete(
-                full_url, headers=headers, params=query_params
-            )
-        else:
-            raise HTTPException(status_code=405, detail="Method not allowed")
+        async with async_client.stream(
+            method=method,
+            url=full_url,
+            headers=headers,
+            params=query_params,
+            content=body if body else None,
+        ) as response:
+            # Kiểm tra Content-Type và Transfer-Encoding của response
+            content_type = response.headers.get("content-type", "")
+            transfer_encoding = response.headers.get("transfer-encoding", "")
 
-        # Kiểm tra Content-Type của response
-        content_type = response.headers.get("content-type", "")
+            # Xử lý response dạng stream
+            if "chunked" in transfer_encoding or "text/event-stream" in content_type:
 
-        # Xử lý response dựa trên Content-Type
-        if "application/json" in content_type:
-            return response.json()
-        else:
-            # Trả về nội dung nguyên bản (text, binary, v.v.)
-            return Response(
-                content=response.content,
-                media_type=content_type,
-                status_code=response.status_code,
-            )
+                async def stream_content():
+                    async for chunk in response.aiter_raw():
+                        yield chunk
+
+                return StreamingResponse(
+                    stream_content(),
+                    status_code=response.status_code,
+                    headers=dict(response.headers),
+                    media_type=content_type,
+                )
+
+            # Xử lý response không phải stream
+            else:
+                content = await response.aread()
+                if "application/json" in content_type:
+                    return response.json()
+                else:
+                    return Response(
+                        content=content,
+                        media_type=content_type,
+                        status_code=response.status_code,
+                    )
 
     except Exception as e:
         raise HTTPException(
