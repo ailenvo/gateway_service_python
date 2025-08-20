@@ -1,16 +1,30 @@
 from fastapi import FastAPI, HTTPException, Request, Response
 from httpx import AsyncClient
-from app.configs.config import PORT
+from configs.config import PORT
 import os
 from dotenv import load_dotenv
-from app.schemas.base import AppBaseResponseError
+from schemas.base import AppBaseResponseError
+from contextlib import asynccontextmanager
 
 load_dotenv()
 
-app = FastAPI(title="API Gateway")
-
 # Async client để gửi request đến backend
 async_client = AsyncClient()
+
+
+# Lifespan context replaces startup/shutdown events
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # logger.info("App startup")
+    yield
+    # logger.info("App shutdown")
+    await async_client.aclose()
+
+
+app = FastAPI(
+    title="API Gateway",
+    lifespan=lifespan,
+)
 
 
 @app.get("/health")
@@ -104,12 +118,6 @@ async def route_request(service: str, path: str, request: Request):
         raise HTTPException(
             status_code=500, detail=f"Error forwarding request to {service}: {str(e)}"
         )
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """Đóng async client khi shutdown"""
-    await async_client.aclose()
 
 
 if __name__ == "__main__":

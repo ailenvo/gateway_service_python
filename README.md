@@ -34,7 +34,7 @@ Tạo file .env có nội dung được ví dụ trong file env-example
 Cuối cùng dùng lệnh dưới để chạy start
 
 ```
-uvicorn app.main:app --reload --port 8000
+python3 app/main.py
 
 Trên docker
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
